@@ -1,0 +1,29 @@
+.kitchen-source > summary { min-height: 48px; padding-block: 11px; color: var(--red); font-weight: 750; cursor: pointer; }
+.kitchen-source[open] > :not(summary) { margin-top: 10px; }
+.kitchen-source button { padding-inline: 12px; }
+.manuscript-preview, .recreation-photo { display: block; width: min(100%, 480px); max-height: 450px; object-fit: contain; background: var(--wash); }
+.manuscript-link { display: grid; gap: 6px; color: var(--red); }
+.kitchen-list { margin: 0; padding-inline-start: 1.5em; overflow-wrap: anywhere; }
+.kitchen-list li + li { margin-top: 8px; }
+.kitchen-entry, .menu-day { min-width: 0; padding-top: 10px; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+.kitchen-entry form { margin-top: 8px; }
+.print-book { padding: clamp(12px, 4vw, 28px); background: var(--surface); border: 1px solid var(--line); }
+.print-book header { text-align: center; margin-block: 10px 25px; }
+.print-book article { border-top: 1px solid var(--line); padding-block: 15px; overflow-wrap: anywhere; }
+.print-book h1, .print-book h2 { color: var(--red); font-family: var(--display); }
+.print-book figure { margin-inline: 0; }
+.print-book img { display: block; width: 100%; max-height: 420px; object-fit: contain; }
+.print-book .panel { border: 0; padding-inline: 0; background: transparent; }
+.screen-print .content { position: relative; }
+.book-print-action { position: sticky; bottom: calc(78px + env(safe-area-inset-bottom)); }
+.menu-shopping-link { color: var(--red); display: inline-flex; align-items: center; min-height: 48px; justify-self: start; }
+#family-shopping { scroll-margin-bottom: 96px; }
+@media print {
+  :root, body:has(.print-book), body:has(.print-book) #app { background: white; color: #332b24; }
+  body:has(.print-book) #app { padding: 0; width: auto; }
+  body:has(.print-book) .nav, .screen-print > .screen-header, .screen-print .content > :not(.print-book) { display: none; }
+  .screen-print .content, .print-book { display: block; border: 0; padding: 0; background: white; color: #332b24; }
+  .print-book article { break-before: page; border: 0; }
+  .print-book figure, .print-book li { break-inside: avoid; }
+  .print-book :is(p, small, h1, h2, h3) { color: #332b24; }
+}

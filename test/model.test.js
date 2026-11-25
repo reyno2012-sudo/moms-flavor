@@ -1,0 +1,7 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {seed,familySeed,feed,publishDraft} from '../src/model.js';
+const draft={name:'重庆小面',author:'真实长辈姓名',city:'重庆',tag:'面食',note:'私密原话',confirmed:true,visibility:'public',consent:true};
+test('公共推荐排除家庭与个人内容',()=>{const records=[...seed,...familySeed,{...seed[0],id:'private',visibility:'private'}];assert.equal(feed(records).length,seed.length);assert.ok(feed(records).every(r=>r.visibility==='public'))});
+test('地域、搜索、分类、关注正确筛选',()=>{assert.ok(feed(seed,{city:'重庆'}).every(r=>r.city==='重庆'));assert.equal(feed(seed,{search:'热干面'}).length,1);assert.equal(feed(seed,{tag:'面食'}).length,2);assert.equal(feed(seed,{tab:'关注',followed:['山城阿梅']}).length,2)});
+test('公开发布必须明确授权',()=>{assert.throws(()=>publishDraft({...draft,consent:false}));assert.throws(()=>publishDraft({...draft,confirmed:false}));assert.throws(()=>publishDraft({...draft,name:' '}))});
+test('公共快照不带私有原话与长辈身份',()=>{const r=publishDraft(draft);assert.equal(r.visibility,'public');assert.equal(r.author,'我的厨房');assert.ok(!JSON.stringify(r).includes(draft.note));assert.ok(!JSON.stringify(r).includes(draft.author));assert.equal(feed([r],{city:'重庆'}).length,1)});
+test('家庭和个人保存不进入公共候选',()=>{const a=publishDraft({...draft,visibility:'family',consent:false});const b=publishDraft({...draft,visibility:'private',consent:false});assert.equal(feed([a,b]).length,0);assert.equal(a.desc,draft.note)});

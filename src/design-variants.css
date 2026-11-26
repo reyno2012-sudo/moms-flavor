@@ -18,7 +18,7 @@
 }
 [data-design="notebook"] .feature-photo { grid-area: cover; min-height: 154px; }
 [data-design="notebook"] .feature-copy { grid-area: caption; align-content: center; background: none; }
-[data-design="notebook"] .feature-copy strong { max-width: none; font-size: clamp(1.28rem, 4.5vw, 2rem); }
+[data-design="notebook"] .feature-copy strong { max-width: none; font-size: clamp(1.28rem, 4.5cqw, 2rem); }
 [data-design="notebook"] .feature-place span { border-color: var(--line); color: var(--muted); }
 [data-design="notebook"] .feature-link { border-color: var(--red); color: var(--red); }
 [data-design="notebook"] .recipe-grid.list { gap: 0; border-top: 1px solid var(--line); }
@@ -44,16 +44,16 @@
   --on-accent: #38251f;
 }
 .region-index { display: grid; gap: 11px; }
-.region-index h2 { font-family: var(--display); font-size: clamp(1.25rem, 4vw, 1.6rem); }
+.region-index h2 { font-family: var(--display); font-size: clamp(1.25rem, 4cqw, 1.6rem); }
 .place-grid { display: grid; gap: 8px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .place { display: grid; grid-template-areas: "tile"; overflow: hidden; border-radius: 10px; text-align: left; color: #fff9eb; }
 .place > * { grid-area: tile; }
 .place .food { aspect-ratio: .98; }
 .place strong {
-  display: grid; align-content: end; z-index: 1; padding: 7px; font-size: clamp(.86rem, 3vw, 1.14rem);
+  display: grid; align-content: end; z-index: 1; padding: 7px; font-size: clamp(.86rem, 3cqw, 1.14rem);
   background: linear-gradient(0deg, #1c110cf0, transparent 80%);
 }
-@media (min-width: 720px) {
+@container app-viewport (min-width: 720px) {
   .place-grid { gap: 14px; }
   .place .food { aspect-ratio: 1.5; }
   .place strong { padding: 14px; }

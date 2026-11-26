@@ -3,15 +3,44 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="theme-color" content="#FAF6EE">
+    <meta name="theme-color" content="#F9F4F0">
     <title>妈妈的味道 · Mom's Flavor</title>
     <link rel="stylesheet" href="/src/style.css">
     <link rel="stylesheet" href="/src/design-variants.css">
     <link rel="stylesheet" href="/src/story.css">
     <link rel="stylesheet" href="/src/kitchen.css">
+    <link rel="stylesheet" href="/src/appearance.css">
+    <link rel="stylesheet" href="/src/preview.css">
   </head>
   <body>
-    <main id="app"></main>
+    <div class="phone-frame">
+      <div class="phone-keys" aria-hidden="true">
+        <span class="phone-key-action"></span>
+        <span class="phone-key-volume-up"></span>
+        <span class="phone-key-volume-down"></span>
+        <span class="phone-key-power"></span>
+      </div>
+      <div class="phone-preview">
+        <div class="phone-status" aria-hidden="true">
+          <span>9:41</span>
+          <span class="phone-status-icons">
+            <svg viewBox="0 0 59 16" width="59" height="16" fill="currentColor">
+              <rect x="0" y="10" width="3" height="4" rx="1"/>
+              <rect x="4.5" y="7.5" width="3" height="6.5" rx="1"/>
+              <rect x="9" y="4.5" width="3" height="9.5" rx="1"/>
+              <rect x="13.5" y="2" width="3" height="12" rx="1"/>
+              <path d="M22 5a10 10 0 0 1 13 0m-11 3a7 7 0 0 1 9 0m-6.7 3a3.5 3.5 0 0 1 4.4 0" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+              <circle cx="28.5" cy="13" r="1"/>
+              <rect x="39.5" y="3.5" width="17" height="9" rx="2" fill="none" stroke="currentColor" opacity=".55"/>
+              <rect x="41" y="5" width="14" height="6" rx="1"/>
+              <path d="M58 6.5v3" stroke="currentColor" stroke-linecap="round" opacity=".55"/>
+            </svg>
+          </span>
+        </div>
+        <main id="app"></main>
+        <div class="phone-home" aria-hidden="true"></div>
+      </div>
+    </div>
     <script type="module" src="/src/app.js"></script>
   </body>
 </html>

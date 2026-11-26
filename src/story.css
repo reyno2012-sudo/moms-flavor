@@ -3,14 +3,14 @@
 
 .story-article {
   display: grid;
-  gap: clamp(14px, 3vw, 24px);
+  gap: clamp(14px, 3cqw, 24px);
   min-width: 0;
-  padding: clamp(13px, 3.5vw, 25px);
+  padding: clamp(13px, 3.5cqw, 25px);
   border: 1px solid var(--line);
   background: var(--surface);
 }
 .story-masthead { display: grid; gap: 12px; padding: 12px 0 13px; border-block: 1px solid var(--line); }
-.story-masthead h2 { font-family: var(--display); font-size: clamp(1.75rem, 7vw, 3.15rem); color: var(--red); text-wrap: balance; white-space: pre-line; }
+.story-masthead h2 { font-family: var(--display); font-size: clamp(1.75rem, 7cqw, 3.15rem); color: var(--red); text-wrap: balance; white-space: pre-line; }
 .story-byline, .story-preview-byline { font-size: .88rem; }
 .story-figure { margin: 0; display: grid; gap: 7px; min-width: 0; }
 .story-figure img { display: block; width: 100%; max-height: 540px; object-fit: contain; background: var(--wash); }
@@ -18,7 +18,7 @@
 .story-figure figcaption, .story-credit { color: var(--muted); font-size: .82rem; overflow-wrap: anywhere; }
 .story-figure figcaption { padding-bottom: 8px; border-bottom: 1px solid var(--line); }
 .story-prose { display: grid; gap: 14px; font-family: var(--display); }
-.story-prose p { color: var(--ink); font-size: clamp(1.04rem, 4.15vw, 1.23rem); line-height: 1.85; white-space: pre-line; }
+.story-prose p { color: var(--ink); font-size: clamp(1.04rem, 4.15cqw, 1.23rem); line-height: 1.85; white-space: pre-line; }
 .story-prose p:first-child::first-letter { color: var(--red); font-size: 1.68em; font-weight: bold; line-height: .85; }
 .story-gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr)); gap: 14px; }
 .story-gallery img { max-height: 300px; }

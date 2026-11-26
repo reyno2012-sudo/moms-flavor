@@ -7,7 +7,7 @@
 .kitchen-list li + li { margin-top: 8px; }
 .kitchen-entry, .menu-day { min-width: 0; padding-top: 10px; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
 .kitchen-entry form { margin-top: 8px; }
-.print-book { padding: clamp(12px, 4vw, 28px); background: var(--surface); border: 1px solid var(--line); }
+.print-book { padding: clamp(12px, 4cqw, 28px); background: var(--surface); border: 1px solid var(--line); }
 .print-book header { text-align: center; margin-block: 10px 25px; }
 .print-book article { border-top: 1px solid var(--line); padding-block: 15px; overflow-wrap: anywhere; }
 .print-book h1, .print-book h2 { color: var(--red); font-family: var(--display); }

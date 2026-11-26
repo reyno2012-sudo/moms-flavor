@@ -1,3 +1,4 @@
+import './preview.js';
 import { cuisines, seed, familySeed, feed } from './model.js';
 import { api } from './client.js';
 import { avatar, bottomNav, btn, check, content, empty, esc, food, header, icon, input, note, photoIds, select } from './ui.js';
@@ -11,7 +12,7 @@ const app = document.querySelector('#app');
 const preview = new URLSearchParams(location.search).get('design');
 const design = ['notebook', 'regions'].includes(preview) ? preview : 'table';
 document.documentElement.dataset.design = design;
-if (design !== 'table') document.querySelector('meta[name="theme-color"]').content = design === 'regions' ? '#2D2422' : '#F8F7EE';
+document.querySelector('meta[name="theme-color"]').content = '#F9F4F0';
 const key = 'moms-flavor-v02';
 const cities = ['重庆', '深圳', '宜昌', '武汉', '其他'];
 const tags = ['全部', '家常菜', '面食', '小吃', '汤羹'];
@@ -428,7 +429,9 @@ function render() {
     menu: menusPage, books: booksPage, book: bookPage, print: printPage, recreation: recreationPage };
   const main = s.page ? pages[s.page]() : s.detail ? detail() : screens[s.nav]();
   const section = s.page || (s.detail ? 'detail' : s.nav);
+  const scrollTop = app.firstElementChild?.scrollTop ?? 0;
   app.innerHTML = `<div class="screen screen-${section}">${main}</div>${bottomNav(s.nav)}`;
+  app.firstElementChild.scrollTop = scrollTop;
 }
 
 async function refresh() {
@@ -854,6 +857,7 @@ const headingActions = new Set(['nav', 'account', 'detail', 'back', 'review', 'a
   'openMenu', 'openBooks', 'openBook', 'printPreview', 'recreation', 'derive']);
 const focusHeading = () => {
   window.scrollTo(0, 0);
+  app.firstElementChild?.scrollTo(0, 0);
   app.querySelector('h1')?.focus({ preventScroll: true });
 };
 

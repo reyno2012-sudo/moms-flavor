@@ -1,0 +1,22 @@
+.recipe-media, .media-clip, .video-pickers { min-width: 0; display: grid; gap: 10px; }
+.recipe-media video, .recipe-media audio { width: 100%; display: block; }
+.recipe-media video { max-height: 380px; background: #151515; border-radius: 14px; }
+.recipe-media .field input[type="file"] { font-size: .85rem; }
+.hold-voice { touch-action: none; user-select: none; -webkit-touch-callout: none; }
+.hold-voice:active { background: var(--accent); color: var(--ink); }
+.recipe-method > .recipe-media { margin-block: 14px; }
+.illustrated-cooking { display: grid; gap: 11px; margin-block: 18px; }
+.illustration-caption { font-size: .76rem; }
+.ingredient-gallery, .step-gallery { display: grid; gap: 10px; padding: 0; list-style: none; }
+.ingredient-gallery { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 12px; }
+.ingredient-gallery li { min-width: 0; display: grid; align-content: start; gap: 4px; font-size: .82rem; }
+.ingredient-gallery strong { overflow-wrap: anywhere; }
+.cooking-illustration { display: block; aspect-ratio: 1; border-radius: 12px; background-color: var(--wash); background-repeat: no-repeat; }
+.step-gallery li { display: grid; grid-template-columns: minmax(65px, 32%) minmax(0, 1fr); align-items: start; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.step-gallery li p { margin-top: 4px; font-size: .9rem; }
+.sample-comments { display: grid; gap: 10px; padding: 12px; background: var(--wash); border-radius: 16px; }
+.sample-comments h4 { font-size: .83rem; color: var(--red); margin: 0; }
+.recipe-footer { border-top: 1px solid var(--line); padding-top: 16px; }
+.recipe-share-dialog { width: min(calc(100% - 32px), 360px); padding: 0; color: var(--ink); background: var(--surface); border: 0; border-radius: 26px; }
+.recipe-share-dialog::backdrop { background: #15161980; }
+.recipe-share-dialog form button { justify-self: start; }

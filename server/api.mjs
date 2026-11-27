@@ -8,6 +8,7 @@ import { digest, equalSecret, hashPassword, randomToken, sessionAge, sessionCook
 import { recommend } from './recommend.mjs';
 import { storyLimits } from '../src/story-limits.js';
 import { decodeStoryPhoto } from './story-photos.mjs';
+import { mediaLinks, readMediaUploads, sendMedia } from './recipe-media.mjs';
 import { parseCooking } from '../src/cooking.js';
 import { createKitchen } from './kitchen.mjs';
 import { importRecipeLink, sourceUrl } from './recipe-import.mjs';
@@ -116,11 +117,12 @@ export function createApi({ filename, moderatorKey = process.env.MF_MODERATOR_KE
   }
 
   function publicationView(row) {
-    const { photoSelections = [], versionOf, ...snapshot } = JSON.parse(row.snapshot);
+    const { photoSelections = [], mediaSelections = [], versionOf, ...snapshot } = JSON.parse(row.snapshot);
     const parentRow = versionOf && get("SELECT snapshot FROM publications WHERE id=? AND state='approved'", versionOf);
     const versionName = versionOf && (examples.find(recipe => recipe.id === versionOf)?.name ?? (parentRow && JSON.parse(parentRow.snapshot).name));
     return { id: row.id, ...snapshot, createdAt: row.published_at, visibility: 'public', likes: 0,
       ...(versionName ? { versionOf, versionName } : {}),
+      ...(mediaSelections.length ? { media: mediaLinks(`/api/publications/${row.id}/media`, mediaSelections) } : {}),
       photos: photoLinks(`/api/publications/${row.id}/photos`, photoSelections.map(photo => photo.caption)) };
   }
 
@@ -146,12 +148,13 @@ export function createApi({ filename, moderatorKey = process.env.MF_MODERATOR_KE
   }
 
   function recipeView(row, user) {
-    const { photoCaptions = [], hasManuscript, versionOf, ...original } = JSON.parse(row.content);
+    const { photoCaptions = [], mediaEntries = [], hasManuscript, versionOf, ...original } = JSON.parse(row.content);
     const own = row.user_id === user.id;
     const parent = versionOf && (publicRecord(versionOf) ?? originalRows(user, versionOf)[0]);
     const view = { id: row.id, ...original, createdAt: row.created_at, familyId: row.family_id, own, recordedBy: row.recorded_by,
       ...(hasManuscript ? { manuscriptUrl: `/api/recipes/${row.id}/manuscript` } : {}),
       ...(parent ? { versionOf, versionName: parent.name ?? JSON.parse(parent.content).name } : {}),
+      ...(mediaEntries.length ? { media: mediaLinks(`/api/recipes/${row.id}/media`, mediaEntries) } : {}),
       photos: photoLinks(`/api/recipes/${row.id}/photos`, photoCaptions) };
     if (own && row.publication_id) {
       view.publicationId = row.publication_id;
@@ -192,6 +195,7 @@ export function createApi({ filename, moderatorKey = process.env.MF_MODERATOR_KE
     const desc = clean(body.note ?? '', 5_000, '原始资料', true);
     const story = clean(body.story ?? '', storyLimits.text, '故事正文', true);
     const photos = readPhotoUploads(body.photoUploads);
+    const media = readMediaUploads(body.mediaUploads, requireValue, clean);
     const manuscript = body.manuscript ? decodeStoryPhoto(body.manuscript) : null;
     requireValue(!body.manuscript || manuscript, 400, '手稿照片格式无效');
     const versionOf = clean(body.versionOf ?? '', 100, '原菜谱', true);
@@ -212,14 +216,21 @@ export function createApi({ filename, moderatorKey = process.env.MF_MODERATOR_KE
     requireValue(Array.isArray(selected) && selected.length <= photos.length && new Set(selected).size === selected.length
       && selected.every(index => Number.isInteger(index) && index >= 0 && index < photos.length), 400, '请选择有效的公开照片');
     const photoSelections = photos.flatMap(({ caption }, position) => selected.includes(position) ? [{ position, caption }] : []);
+    const selectedMedia = isPublic ? body.publicMediaIndexes ?? [] : [];
+    requireValue(Array.isArray(selectedMedia) && new Set(selectedMedia).size === selectedMedia.length
+      && selectedMedia.every(index => Number.isInteger(index) && index >= 0 && index < media.length), 400, '请选择有效的公开影音');
+    const mediaEntries = media.map(({ kind, step, caption }) => ({ kind, step, caption }));
+    const mediaSelections = mediaEntries.flatMap((clip, position) => selectedMedia.includes(position) ? [{ position, ...clip }] : []);
     const content = JSON.stringify({ name, city, tag, ...(cuisine ? { cuisine } : {}), author, desc, organization,
       visibility: familyId ? 'family' : 'private', emoji: '🍽️', likes: 0,
       ...(story ? { story } : {}), ...(photos.length ? { photoCaptions: photos.map(photo => photo.caption) } : {}),
+      ...(media.length ? { mediaEntries } : {}),
       ...(manuscript ? { hasManuscript: true } : {}), ...(versionOf ? { versionOf } : {}),
       ...(origin ? { sourceUrl: origin } : {}), ...(cooking ? { cooking } : {}) });
     const snapshot = isPublic ? JSON.stringify({ name, city, tag, ...(cuisine ? { cuisine } : {}), author: '家庭厨房',
       authorKey: digest(`public-author:${user.id}`), desc: publicDescription, emoji: '🍽️',
       ...(body.publicStory === true && story ? { story } : {}), ...(photoSelections.length ? { photoSelections } : {}),
+      ...(mediaSelections.length ? { mediaSelections } : {}),
       ...(body.publicCooking === true && cooking ? { cooking } : {}),
       ...(body.publicLineage === true && versionOf && publicRecord(versionOf) ? { versionOf } : {}) }) : null;
     return transaction(() => {
@@ -236,12 +247,18 @@ export function createApi({ filename, moderatorKey = process.env.MF_MODERATOR_KE
         }
         if (manuscript) requireValue(manuscript.equals(get('SELECT jpeg FROM recipe_manuscripts WHERE recipe_id=?', old.id).jpeg),
           409, '此保存标识已用于其他手稿');
+        if (media.length) {
+          const previousMedia = all('SELECT mime,bytes FROM recipe_media WHERE recipe_id=? ORDER BY position', old.id);
+          requireValue(previousMedia.length === media.length && media.every(({ bytes, mime }, index) =>
+            mime === previousMedia[index].mime && bytes.equals(previousMedia[index].bytes)), 409, '此保存标识已用于其他影音');
+        }
         return readRecipes(user, old.id)[0];
       }
       const id = randomUUID();
       const now = Date.now();
       run('INSERT INTO recipes VALUES (?, ?, ?, ?, ?, ?)', id, user.id, familyId, requestId, content, now);
       photos.forEach(({ jpeg }, position) => run('INSERT INTO recipe_photos VALUES (?, ?, ?)', id, position, jpeg));
+      media.forEach(({ mime, bytes }, position) => run('INSERT INTO recipe_media VALUES (?, ?, ?, ?)', id, position, mime, bytes));
       if (manuscript) run('INSERT INTO recipe_manuscripts VALUES (?, ?)', id, manuscript);
       if (isPublic) {
         run("INSERT INTO publications (id,recipe_id,state,snapshot,consented_at) VALUES (?,?,'pending',?,?)", randomUUID(), id, snapshot, now);
@@ -256,6 +273,22 @@ export function createApi({ filename, moderatorKey = process.env.MF_MODERATOR_KE
     const user = session(request);
     const moderator = Boolean(user && equalSecret(request.headers['x-moderator-key'], moderatorKey));
     if (path.startsWith('/api/kitchen/')) return kitchen.route(url, method, user, limit => readJson(request, limit), moderator);
+    const media = path.match(/^\/api\/(recipes|publications)\/([^/]+)\/media\/(\d+)$/);
+    if (['GET', 'HEAD'].includes(method) && media) {
+      const [, scope, id, index] = media;
+      let recipeId = id;
+      let position = Number(index);
+      if (scope === 'recipes') requireValue(originalRows(user, id).length, 404, '影音不存在');
+      else {
+        const publication = get('SELECT recipe_id,snapshot,state FROM publications WHERE id=?', id);
+        requireValue(publication?.state === 'approved' || publication?.state === 'pending' && moderator, 404, '影音不存在');
+        recipeId = publication.recipe_id;
+        position = JSON.parse(publication.snapshot).mediaSelections?.[position]?.position;
+      }
+      const stored = position === undefined ? null : get('SELECT mime,bytes FROM recipe_media WHERE recipe_id=? AND position=?', recipeId, position);
+      requireValue(stored, 404, '影音不存在');
+      return { mediaFile: stored };
+    }
     const manuscript = path.match(/^\/api\/recipes\/([^/]+)\/manuscript$/);
     if (method === 'GET' && manuscript) {
       const id = manuscript[1];
@@ -336,7 +369,7 @@ export function createApi({ filename, moderatorKey = process.env.MF_MODERATOR_KE
     }
 
     requireValue(user, 401, '请先登录');
-    const largeBody = path === '/api/recipes' ? 4_100_000 : path === '/api/ai/manuscript' ? 1_050_000 : undefined;
+    const largeBody = path === '/api/recipes' ? 38_000_000 : path === '/api/ai/manuscript' ? 1_050_000 : undefined;
     const body = method === 'POST' ? await readJson(request, largeBody) : {};
     if (method === 'POST' && path === '/api/logout') {
       run('DELETE FROM sessions WHERE token = ?', tokenFrom(request));
@@ -484,7 +517,8 @@ export function createApi({ filename, moderatorKey = process.env.MF_MODERATOR_KE
       response.setHeader('Cache-Control', 'no-store');
       try {
         const data = await route(request, url, cookie => response.setHeader('Set-Cookie', cookie));
-        if (data instanceof Uint8Array) {
+        if (data?.mediaFile) sendMedia(request, response, data.mediaFile);
+        else if (data instanceof Uint8Array) {
           response.setHeader('Content-Type', 'image/jpeg');
           response.setHeader('Content-Length', data.byteLength);
           response.end(data);

@@ -32,8 +32,29 @@ export function cookingEditor(draft) {
   </details>`;
 }
 
+function foodIllustration(picture, label, kind) {
+  if (!Number.isInteger(picture)) return '';
+  const family = kind === 'step' && picture >= 16 && picture < 20;
+  const extra = kind === 'step' && picture >= 20;
+  const cols = kind === 'ingredient' ? 5 : family ? 2 : 4;
+  const index = extra ? picture - 20 : family ? picture - 16 : picture;
+  const image = kind === 'ingredient' ? 'ingredients-atlas'
+    : family ? 'family-cooking-atlas' : extra ? 'cooking-detail-atlas' : 'cooking-atlas';
+  const x = (index % cols) * 100 / (cols - 1);
+  const y = Math.floor(index / cols) * 100 / (cols - 1);
+  return `<span class="cooking-illustration" role="img" aria-label="${esc(label)}"
+    style="background-image:url('/src/assets/${image}.jpg');background-size:${cols * 100}%;background-position:${x}% ${y}%"></span>`;
+}
+
 export function cookingView(recipe) {
-  const { ingredients = [], steps = [] } = recipe.cooking ?? {};
+  const { ingredients = [], steps = [], stepPictures = [] } = recipe.cooking ?? {};
+  if (recipe.demo && stepPictures.length) return `<section class="illustrated-cooking">
+    <h3>食材和用量</h3><p class="illustration-caption">示例用量 · AI 示意图</p>
+    <ul class="ingredient-gallery">${ingredients.map(item => `<li>${foodIllustration(item.picture, item.name, 'ingredient')}
+      <strong>${esc(item.name)}</strong><small>${esc([item.amount, item.unit].filter(Boolean).join(' '))}</small></li>`).join('')}</ul>
+    <h3>制作步骤</h3><p class="illustration-caption">按顺序操作 · AI 示意图</p>
+    <ol class="step-gallery">${steps.map((step, index) => `<li>${foodIllustration(stepPictures[index], `第 ${index + 1} 步示意图`, 'step')}
+      <div><strong>第 ${index + 1} 步</strong><p>${esc(step)}</p></div></li>`).join('')}</ol></section>`;
   return `${ingredients.length ? `<div class="panel"><h3>食材和用量</h3><ul class="kitchen-list">${ingredients.map(item =>
     `<li>${esc(item.name)}${item.amount ? ` <strong>${esc([item.amount, item.unit].filter(Boolean).join(' '))}</strong>` : ''}</li>`).join('')}</ul></div>` : ''}
     ${steps.length ? `<div class="panel"><h3>做法</h3><ol class="kitchen-list">${steps.map(step => `<li>${esc(step)}</li>`).join('')}</ol></div>` : ''}`;

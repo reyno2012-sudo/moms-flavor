@@ -4,6 +4,8 @@ import { api } from './client.js';
 import { avatar, bottomNav, btn, check, content, empty, esc, food, header, icon, input, note, photoIds, select } from './ui.js';
 import { draftStory, hasStory, prepareStoryPhoto, storyArticle, storyFields, storyShareOptions } from './story.js';
 import { storyLimits } from './story-limits.js';
+import { bindVoiceRecorder, mediaEditor, mediaPayload, mediaView, prepareClip } from './recipe-media.js';
+import { showRecipeShare } from './recipe-share.js';
 import { cookingText, extractPastedRecipe, parseCooking } from './cooking.js';
 import { cookbookEntries, cookbookForm, cookbookRows, cookingEditor, cookingView, downloadBook, familyCollaboration,
   menuView, printableBook, recipeOrigin, recipeSharing, recreationForm, recreationList, recordSources } from './kitchen.js';
@@ -43,8 +45,8 @@ const today = () => new Intl.DateTimeFormat('sv-SE', { year: 'numeric', month: '
 const blank = () => ({
   requestId: crypto.randomUUID(), name: '', author: '妈妈', city: preferences.city || local.city || cities[0],
   tag: '家常菜', cuisine: '', note: '', method: '手动记录', organization: null, confirmed: false, visibility: 'private',
-  familyId: '', consent: false, publicDescription: '', aiConsent: false, story: '', photoUploads: [],
-  publicStory: false, publicPhotoIndexes: [], manuscript: '', manuscriptConsent: false, sourceUrl: '',
+  familyId: '', consent: false, publicDescription: '', aiConsent: false, story: '', photoUploads: [], mediaUploads: [],
+  publicStory: false, publicPhotoIndexes: [], publicMediaIndexes: [], manuscript: '', manuscriptConsent: false, sourceUrl: '',
   versionOf: '', versionName: '', ingredientsText: '', stepsText: '', publicCooking: false, publicLineage: false
 });
 const s = {
@@ -176,21 +178,24 @@ function detail() {
   const article = hasStory(recipe) ? storyArticle(recipe, byline, photoIds.has(recipe.id) ? food(recipe, 'hero') : '')
     : food(recipe, 'hero') + `<div class="detail-heading"><h2>${esc(recipe.name)}</h2>${byline}</div>`;
   return header(hasStory(recipe) ? '菜谱故事' : pub ? '菜谱详情' : '私有菜谱', [recipe.city, recipe.tag, recipe.cuisine].filter(Boolean).join(' · '), '', true) + content(
-    status() + article + recipeOrigin(recipe) + recipeSharing(recipe, families)
+    status() + article + mediaView(recipe.media, 'voice') + recipeOrigin(recipe) + recipeSharing(recipe, families)
     + (recipe.publicationState ? `<div class="panel"><h3>公开状态 · ${states[recipe.publicationState]}</h3>
       ${['pending', 'approved'].includes(recipe.publicationState) ? btn('撤回公开投稿', 'withdraw', recipe.publicationId, 'secondary') : ''}</div>` : '')
     + (pub ? `<div class="row between">${likeButton(recipe)}${btn(saved ? '★ 已收藏' : '☆ 收藏', 'bookmark', recipe.id, 'secondary', { pressed: saved })}</div>` : '')
     + `<section class="recipe-method"><h3>这道菜怎么做</h3>
       ${recipe.desc ? `<p class="recipe-description">${esc(recipe.desc)}</p>` : ''}
-      ${clarify}${btn('跟着做这道菜', 'cook', '', 'primary full')}</section>`
+      ${clarify}${mediaView(recipe.media, 'videos')}${btn('跟着做这道菜', 'cook', '', 'primary full')}</section>`
     + `<section class="panel"><h3>家人和厨友的复刻</h3><div class="row">
       ${btn('我也做了', 'recreation', '', 'secondary')}${btn('另存我的版本', 'derive', '', 'secondary')}</div>
       ${recreationList(recipeRecreations)}${versionList.length ? `<h3>相关版本</h3>${versionList.map(row).join('')}` : ''}</section>`
     + familyCollaboration(recipe, family, user, checks.filter(check => check.recipeId === recipe.id))
-    + (pub ? `<section class="panel"><div class="row between"><h3>美食交流</h3>${btn('举报', 'report', '', 'text-button')}</div>
-      ${comments.length ? comments.map(comment => `<p class="comment">${esc(comment.text)}</p>`).join('') : '<p>还没有评论。</p>'}
-      <form data-form="comment"><label class="field">分享做菜心得<input name="comment" required maxlength="400"></label>
-      <button class="secondary">发送评论</button></form></section>` : ''));
+    + (pub || recipe.sampleComments?.length ? `<section class="panel"><div class="row between"><h3>美食交流</h3>${pub ? btn('举报', 'report', '', 'text-button') : ''}</div>
+      ${recipe.sampleComments?.length ? `<div class="sample-comments"><h4>示例评论</h4>
+        ${recipe.sampleComments.map(text => `<p class="comment">${esc(text)}</p>`).join('')}</div>` : ''}
+      ${pub ? `${comments.length ? comments.map(comment => `<p class="comment">${esc(comment.text)}</p>`).join('') : '<p>还没有社区留言。</p>'}
+        <form data-form="comment"><label class="field">分享做菜心得<input name="comment" required maxlength="400"></label>
+        <button class="secondary">发送评论</button></form>` : ''}</section>` : '')
+    + `<footer class="recipe-footer">${btn('分享菜谱', 'shareRecipe', recipe.id, 'secondary full', { name: `分享菜谱 ${recipe.name}` })}</footer>`);
 }
 
 function record() {
@@ -204,12 +209,12 @@ function record() {
   if (s.phase === 0) {
     html = `<div class="panel record-panel"><fieldset><legend>记录方式</legend><div class="grid">${['录音', '拍摄视频', '导入素材', '手动记录'].map(method =>
       btn(method, 'method', method, `option ${draft.method === method ? 'active' : ''}`, { pressed: draft.method === method })).join('')}</div></fieldset>
-      ${draft.method !== '手动记录' ? note('此版本支持粘贴转写或素材文字。') : ''}
+      ${draft.method === '导入素材' ? note('可以导入菜谱文字、手稿、照片或已有影音。') : ''}
       <div class="identity-fields">${input('draft.name', draft.name, '菜谱名称', '例如：妈妈的重庆小面')}
       ${input('draft.author', draft.author, '原作者')}</div>
       <label class="field">原话和做法<textarea data-field="draft.note" maxlength="5000" placeholder="食材、用量、火候，或长辈的原话">${esc(draft.note)}</textarea></label>
       ${recordSources(draft, manuscriptAiEnabled && user)}${cookingEditor(draft)}
-      ${storyFields(draft)}
+      ${storyFields(draft)}${mediaEditor(draft.mediaUploads)}
       ${user && aiEnabled ? check('draft.aiConsent', draft.aiConsent, '同意将这段文字发送给 AI 服务整理')
     + btn(s.busy === 'ai' ? '正在整理…' : 'AI 整理菜谱', 'ai', '', 'primary full', { disabled: Boolean(s.busy) }) : ''}
       ${btn('手动校对', 'review', '', user && aiEnabled ? 'secondary full' : 'primary full', { disabled: Boolean(s.busy) })}</div>`;
@@ -218,6 +223,7 @@ function record() {
       ${draft.manuscript ? `<details class="panel kitchen-source"><summary>对照原始手稿</summary><img class="manuscript-preview"
         src="data:image/jpeg;base64,${esc(draft.manuscript)}" alt="本次记录的手稿"></details>` : ''}
       ${cookingView({ cooking: parseCooking(draft.ingredientsText, draft.stepsText) })}
+      ${mediaView(draft.mediaUploads)}
       ${organization(draft, true) || note('可以保留口述中的模糊用量。没有记录的量、时间和火候视为未知。')}
       ${check('draft.confirmed', draft.confirmed, '我已核对原话，并确认保留未知信息')}
       ${btn('下一步 · 分享设置', 'share', '', 'primary full')}${btn('返回修改', 'phase', '0', 'secondary')}`;
@@ -256,7 +262,7 @@ function storyPreview() {
   const context = [s.draft.city, s.draft.tag, s.draft.cuisine, isPublic ? '家庭厨房' : s.draft.author.trim()].filter(Boolean).join(' · ');
   const metadata = `<p class="story-preview-byline">${esc(context)}</p>`;
   return header(isPublic ? '公开故事预览' : '故事预览', '', btn('返回编辑', 'back', '', 'secondary'))
-    + content(storyArticle(recipe, metadata) + (!isPublic || s.draft.publicCooking ? cookingView({ cooking: parseCooking(s.draft.ingredientsText, s.draft.stepsText) }) : '')
+    + content(storyArticle(recipe, metadata) + mediaView(recipe.media) + (!isPublic || s.draft.publicCooking ? cookingView({ cooking: parseCooking(s.draft.ingredientsText, s.draft.stepsText) }) : '')
       + (isPublic && s.draft.publicDescription.trim()
       ? `<section class="recipe-method"><h3>公开说明</h3><p class="recipe-description">${esc(s.draft.publicDescription.trim())}</p></section>` : ''));
 }
@@ -356,6 +362,9 @@ function reviewPage() {
        <input name="key" required type="password" autocomplete="off"></label><button class="secondary">读取审核队列</button></form>`
     + (reviewQueue ? `<h2>待审核</h2>${reviewQueue.pending.map(item => `<div class="panel">
       ${hasStory(item) ? storyArticle(item) : `<h3>${esc(item.name)}</h3>`}
+      ${(item.media ?? []).map((clip, index) => clip.playbackUrl
+        ? mediaView([{ ...clip, url: clip.playbackUrl }])
+        : btn(`加载待审${clip.kind === 'voice' ? '语音' : '视频'} ${index + 1}`, 'reviewMedia', `${item.id}:${index}`, 'secondary')).join('')}
       <p>${esc([item.city, item.tag, item.cuisine, item.author].filter(Boolean).join(' · '))}</p>
       ${item.desc ? `<p class="recipe-description">${esc(item.desc)}</p>` : ''}<div class="row">
       ${btn('通过', 'moderate', `approved:${item.id}`, 'primary')}${btn('退回', 'moderate', `rejected:${item.id}`, 'secondary')}</div></div>`).join('') || '<p>没有等待审核的投稿。</p>'}
@@ -424,6 +433,7 @@ function reportPage() {
 }
 
 function render() {
+  cancelVoiceRecording();
   const screens = { discover, local: discover, record, family, me: profile };
   const pages = { account, author: authorPage, members: membersPage, review: reviewPage, report: reportPage, storyPreview,
     menu: menusPage, books: booksPage, book: bookPage, print: printPage, recreation: recreationPage };
@@ -479,7 +489,7 @@ function clearSession() {
   s.authorReturn = null;
   s.step = -1;
   s.phase = 0;
-  s.draft = blank();
+  resetDraft();
   s.savedRecipeId = null;
   s.menu = null;
   s.book = null;
@@ -488,6 +498,14 @@ function clearSession() {
 
 function validateDraft() {
   if (!s.draft.name.trim() || !s.draft.author.trim()) throw new Error('请输入菜谱名称和原作者');
+  if (s.draft.mediaUploads.some(clip => clip.kind === 'step' && (!Number.isInteger(clip.step) || clip.step < 1 || clip.step > 99))) {
+    throw new Error('请给每段步骤视频填写 1 到 99 之间的步骤编号。');
+  }
+}
+
+function resetDraft(next = blank()) {
+  for (const clip of s.draft.mediaUploads) URL.revokeObjectURL(clip.url);
+  s.draft = next;
 }
 
 function openAccount() {
@@ -535,7 +553,8 @@ async function saveDraft() {
   if (!s.draft.confirmed) throw new Error('请先核对原始资料');
   if (s.draft.visibility === 'family' && !families.length) throw new Error('请先创建或加入家庭');
   if (s.draft.visibility === 'public' && !s.draft.consent) throw new Error('请明确确认公开');
-  const recipe = await api('recipes', { ...s.draft, familyId: s.draft.familyId || selectedFamily()?.id || '' });
+  const recipe = await api('recipes', { ...s.draft, mediaUploads: await mediaPayload(s.draft.mediaUploads),
+    familyId: s.draft.familyId || selectedFamily()?.id || '' });
   s.savedRecipeId = recipe.id;
   privateRecipes = [recipe, ...privateRecipes.filter(existing => existing.id !== recipe.id)];
   s.phase = 3;
@@ -545,6 +564,7 @@ async function saveDraft() {
 function clearReviewQueue() {
   for (const item of reviewQueue?.pending ?? []) {
     for (const photo of item.photos ?? []) URL.revokeObjectURL(photo.url);
+    for (const clip of item.media ?? []) if (clip.playbackUrl) URL.revokeObjectURL(clip.playbackUrl);
   }
   for (const item of reviewQueue?.recreations ?? []) if (item.photo) URL.revokeObjectURL(item.photo);
   reviewQueue = null;
@@ -621,7 +641,7 @@ function navigate(value) {
   s.cuisine = '';
   if (value === 'record' && s.phase === 3) {
     s.phase = 0;
-    s.draft = blank();
+    resetDraft();
   }
 }
 
@@ -713,13 +733,13 @@ const actions = {
     if (!user) return openAccount();
     const parent = get(s.detail);
     if (!parent) return;
-    if (s.phase < 3 && [s.draft.name, s.draft.note, s.draft.story, s.draft.manuscript, s.draft.ingredientsText,
+    if (s.phase < 3 && [s.draft.name, s.draft.note, s.draft.story, s.draft.manuscript, s.draft.mediaUploads.length, s.draft.ingredientsText,
       s.draft.stepsText, s.draft.sourceUrl].some(Boolean) && !window.confirm('替换「记录」里尚未保存的草稿，开始记录这个版本吗？')) return;
     navigate('record');
     s.phase = 0;
-    s.draft = { ...blank(), ...cookingText(parent.cooking), name: `${parent.name.slice(0, 82)}（我的版本）`,
+    resetDraft({ ...blank(), ...cookingText(parent.cooking), name: `${parent.name.slice(0, 82)}（我的版本）`,
       city: parent.city, cuisine: parent.cuisine ?? '', tag: parent.tag, author: parent.author,
-      versionOf: parent.id, versionName: parent.name, visibility: parent.familyId ? 'family' : 'private', familyId: parent.familyId ?? '' };
+      versionOf: parent.id, versionName: parent.name, visibility: parent.familyId ? 'family' : 'private', familyId: parent.familyId ?? '' });
   },
   recreation: openRecreation,
   withdrawRecreation: async id => {
@@ -760,7 +780,7 @@ const actions = {
   previewStory: value => {
     if (!s.draft.name.trim()) throw new Error('请填写菜谱名称');
     const isPublic = value === 'public';
-    if (!hasStory(draftStory(s.draft, isPublic))) throw new Error(isPublic ? '请选择要公开的正文或照片' : '请写下故事或添加照片');
+    if (!hasStory(draftStory(s.draft, isPublic))) throw new Error(isPublic ? '请选择要公开的正文、照片或影音' : '请写下故事或添加照片、影音');
     s.publicStoryPreview = isPublic;
     s.page = 'storyPreview';
   },
@@ -768,6 +788,20 @@ const actions = {
     s.draft.photoUploads.splice(Number(value), 1);
     s.draft.publicPhotoIndexes = [];
     s.draft.consent = false;
+  },
+  removeMedia: value => {
+    const [clip] = s.draft.mediaUploads.splice(Number(value), 1);
+    if (clip) URL.revokeObjectURL(clip.url);
+    s.draft.publicMediaIndexes = [];
+    s.draft.consent = false;
+  },
+  reviewMedia: async value => {
+    const [id, index] = value.split(':');
+    const clip = reviewQueue?.pending.find(item => item.id === id)?.media?.[index];
+    if (!clip || !moderatorKey || clip.playbackUrl) return;
+    const response = await fetch(clip.url, { headers: { 'X-Moderator-Key': moderatorKey } });
+    if (!response.ok) throw new Error('待审影音已变化，请重新读取审核队列。');
+    clip.playbackUrl = URL.createObjectURL(await response.blob());
   },
   review: () => { validateDraft(); s.phase = 1; s.draft.confirmed = false; },
   ai: async () => {
@@ -809,7 +843,7 @@ const actions = {
     recipeRecreations = [];
     s.savedRecipeId = null;
     s.phase = 0;
-    s.draft = blank();
+    resetDraft();
   },
   familyRecord: value => {
     navigate('record');
@@ -884,6 +918,11 @@ async function act(action, value) {
     render();
   }
   if (!s.error && headingActions.has(action)) focusHeading();
+  else if (!s.error && action === 'method' && ['录音', '拍摄视频'].includes(value)) {
+    const target = app.querySelector(value === '录音' ? '[data-hold-voice], [data-field="voiceFile"]' : '[data-field="videoFile"]');
+    target?.scrollIntoView({ block: 'center' });
+    target?.focus({ preventScroll: true });
+  }
   else app.querySelectorAll('[data-action]').forEach(button => {
     if (button.dataset.action === action && button.dataset.value === value) button.focus({ preventScroll: true });
   });
@@ -891,6 +930,13 @@ async function act(action, value) {
 
 app.addEventListener('click', event => {
   const button = event.target.closest('[data-action]');
+  if (button?.dataset.action === 'shareRecipe') {
+    const id = button.dataset.value;
+    const original = get(id);
+    const published = publicRecipes.find(recipe => recipe.id === (original?.publicationId || id));
+    if (original) showRecipeShare(published ?? original, Boolean(published));
+    return;
+  }
   if (button) void act(button.dataset.action, button.dataset.value);
 });
 
@@ -898,6 +944,41 @@ function resetShareConsent() {
   s.draft.consent = false;
   const consent = app.querySelector('[data-field="draft.consent"]');
   if (consent) consent.checked = false;
+}
+
+function addClip(file, kind) {
+  s.error = '';
+  try {
+    const clip = prepareClip(file, kind, s.draft.mediaUploads);
+    const existing = kind === 'voice' ? s.draft.mediaUploads.findIndex(item => item.kind === 'voice') : -1;
+    if (existing < 0) s.draft.mediaUploads.push(clip);
+    else URL.revokeObjectURL(s.draft.mediaUploads.splice(existing, 1, clip)[0].url);
+    s.draft.publicMediaIndexes = [];
+    s.draft.confirmed = false;
+    resetShareConsent();
+  } catch (error) {
+    showError(error);
+  }
+  render();
+}
+
+const cancelVoiceRecording = bindVoiceRecorder(app, file => addClip(file, 'voice'),
+  () => !s.busy && s.nav === 'record' && !s.page && !s.detail && s.phase === 0);
+
+function editClip(element) {
+  const clip = s.draft.mediaUploads[Number(element.dataset.mediaIndex)];
+  if (!clip) return;
+  const key = element.dataset.mediaKey;
+  if (key === 'caption') clip.caption = element.value;
+  if (key === 'step') clip.step = element.valueAsNumber;
+  if (key === 'kind' && ['step', 'memory'].includes(element.value)) {
+    clip.kind = element.value;
+    if (clip.kind === 'step' && !clip.step) clip.step = 1;
+    if (clip.kind === 'memory') clip.step = null;
+    render();
+    app.querySelector(`[data-media-index="${Number(element.dataset.mediaIndex)}"][data-media-key="kind"]`)?.focus({ preventScroll: true });
+  }
+  resetShareConsent();
 }
 
 function editDraft(element, field) {
@@ -925,7 +1006,8 @@ function editDraft(element, field) {
 app.addEventListener('input', event => {
   const element = event.target;
   const { field } = element.dataset;
-  if (element.dataset.caption !== undefined) {
+  if (['caption', 'step'].includes(element.dataset.mediaKey)) editClip(element);
+  else if (element.dataset.caption !== undefined) {
     s.draft.photoUploads[Number(element.dataset.caption)].caption = element.value;
     resetShareConsent();
   } else if (field?.startsWith('draft.') && element.tagName !== 'SELECT' && element.type !== 'checkbox') {
@@ -968,6 +1050,13 @@ app.addEventListener('change', async event => {
   const { field } = element.dataset;
   if (field === 'storyPhotos') {
     await addStoryPhotos([...element.files]);
+  } else if (['voiceFile', 'videoFile'].includes(field) && !s.busy && element.files[0]) {
+    addClip(element.files[0], field === 'voiceFile' ? 'voice' : 'step');
+  } else if (element.dataset.mediaKey === 'kind') {
+    editClip(element);
+  } else if (element.dataset.publicMedia !== undefined) {
+    s.draft.publicMediaIndexes = toggle(s.draft.publicMediaIndexes, Number(element.dataset.publicMedia));
+    resetShareConsent();
   } else if ((field === 'manuscript' || field === 'menuStart' || element.dataset.shopping !== undefined) && !s.busy) {
     s.busy = 'updateField';
     s.error = '';
@@ -1092,7 +1181,12 @@ app.addEventListener('submit', async event => {
 
 render();
 s.busy = 'session';
-restoreSession().catch(() => {
+restoreSession().then(async () => {
+  const sharedId = new URLSearchParams(location.search).get('recipe');
+  if (!sharedId) return;
+  if (publicRecipes.some(recipe => recipe.id === sharedId)) await openDetail(sharedId);
+  else s.message = '这道分享的菜谱暂不可见，可能已撤回。';
+}).catch(() => {
   s.message = '暂时无法连接本地服务，正在显示示例菜谱。';
 }).finally(() => {
   s.busy = '';

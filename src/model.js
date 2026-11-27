@@ -1,3 +1,5 @@
+import { enrichExample } from './example-recipes.js';
+
 export const cuisines = ['川菜', '粤菜', '鄂菜', '其他'];
 const exampleCuisines = { 重庆: '川菜', 深圳: '粤菜', 宜昌: '鄂菜', 武汉: '鄂菜' };
 const exampleStories = {
@@ -21,8 +23,8 @@ export const seed=[
 ['yc2','夏天必吃的宜昌凉虾','宜昌','三峡人家','小吃',356,'🍧','一碗清甜的家乡记忆。']
 ].map(([id,name,city,author,tag,likes,emoji,desc],i)=>({id,name,city,author,tag,cuisine:exampleCuisines[city],likes,emoji,desc,
   story: exampleStories[id], ...(id === 'cq1' ? { photos: [{ url: '/src/assets/xiaomian-story.jpg', caption: '清晨，妈妈在厨房拌一碗小面。' }] } : {}),
-  visibility:'public',createdAt:8-i}));
-export const familySeed=[{id:'f1',name:'妈妈的红烧肉',author:'妈妈',city:'家乡',tag:'家常菜',emoji:'🍖',visibility:'family',likes:0},{id:'f2',name:'外婆的蒸鸡蛋',author:'外婆',city:'家乡',tag:'家常菜',emoji:'🥚',visibility:'family',likes:0}];
+  visibility:'public',createdAt:8-i})).map(enrichExample);
+export const familySeed=[{id:'f1',name:'妈妈的红烧肉',author:'妈妈',city:'家乡',tag:'家常菜',emoji:'🍖',visibility:'family',likes:0},{id:'f2',name:'外婆的蒸鸡蛋',author:'外婆',city:'家乡',tag:'家常菜',emoji:'🥚',visibility:'family',likes:0}].map(enrichExample);
 export function feed(records, {city = '', cuisine = '', search = '', tag = '全部', tab = '推荐', followed = [], liked = [], preserveOrder = false} = {}) {
   const query = search.trim().toLowerCase();
   const matches = records.filter(r => r.visibility === 'public' && (!city || r.city === city) && (!cuisine || r.cuisine === cuisine)

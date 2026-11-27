@@ -61,6 +61,14 @@ CREATE TABLE IF NOT EXISTS recipe_photos (
 ) STRICT;
 
 CREATE INDEX IF NOT EXISTS publication_state ON publications (state, published_at);
+CREATE TABLE IF NOT EXISTS recipe_media (
+  recipe_id TEXT NOT NULL REFERENCES recipes ON DELETE CASCADE,
+  position INTEGER NOT NULL CHECK (position BETWEEN 0 AND 4),
+  mime TEXT NOT NULL,
+  bytes BLOB NOT NULL,
+  PRIMARY KEY (recipe_id, position)
+) STRICT;
+
 
 CREATE TABLE IF NOT EXISTS recipe_manuscripts (
   recipe_id TEXT PRIMARY KEY REFERENCES recipes ON DELETE CASCADE,

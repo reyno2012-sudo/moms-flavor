@@ -1,8 +1,9 @@
 import { btn, check, esc } from './ui.js';
 import { storyLimits } from './story-limits.js';
+import { publicMediaOptions } from './recipe-media.js';
 
 export function hasStory(recipe) {
-  return Boolean(recipe.story?.trim() || recipe.photos?.length);
+  return Boolean(recipe.story?.trim() || recipe.photos?.length || recipe.media?.length);
 }
 
 export function storyArticle(recipe, metadata = '', fallbackCover = '') {
@@ -28,7 +29,8 @@ export function draftStory(draft, isPublic = false) {
     name: draft.name.trim(),
     story: isPublic && !draft.publicStory ? '' : draft.story.trim(),
     photos: draft.photoUploads.flatMap((photo, index) => isPublic && !draft.publicPhotoIndexes.includes(index) ? []
-      : [{ url: `data:image/jpeg;base64,${photo.data}`, caption: photo.caption.trim() }])
+      : [{ url: `data:image/jpeg;base64,${photo.data}`, caption: photo.caption.trim() }]),
+    media: draft.mediaUploads.filter((clip, index) => !isPublic || draft.publicMediaIndexes.includes(index))
   };
 }
 
@@ -50,13 +52,14 @@ export function storyFields(draft) {
 }
 
 export function storyShareOptions(draft) {
-  if (!draft.story.trim() && !draft.photoUploads.length) return '';
+  if (!draft.story.trim() && !draft.photoUploads.length && !draft.mediaUploads.length) return '';
   return `<fieldset class="story-share"><legend>把哪些内容放进公开页？</legend>
     ${draft.story.trim() ? check('draft.publicStory', draft.publicStory, '公开故事正文') : ''}
     ${draft.photoUploads.map((photo, index) => `<label class="check share-photo">
       <input type="checkbox" data-public-photo="${index}" ${draft.publicPhotoIndexes.includes(index) ? 'checked' : ''}>
       <img src="data:image/jpeg;base64,${esc(photo.data)}" alt="" decoding="async">
       <span>公开照片 ${index + 1}${photo.caption.trim() ? `（含说明：${esc(photo.caption.trim())}）` : ''}</span></label>`).join('')}
+    ${publicMediaOptions(draft.mediaUploads, draft.publicMediaIndexes)}
     ${btn('预览公开故事', 'previewStory', 'public', 'secondary')}
   </fieldset>`;
 }
